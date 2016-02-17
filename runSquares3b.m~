@@ -1,0 +1,122 @@
+% 
+Experiment with 3 different variants of visual stimuli
+
+clear all
+% Screen('Preference', 'SkipSyncTests', 1); % if psychtoolbox is giving you trouble
+Priority(2); % the priority to give this program. Use 2(PC)/9(Mac)
+prior = 2; % have to change this to match the Priority otherwise keyboard based actions won't work properly
+monitor = 0;
+HideCursor;
+test = 0;
+[Vars,numreps] = squareVariables;
+
+% change keycodes based on mac vs. pc keyboard 
+ready = 0;
+if prior==9
+    numkey=[30 31 32 33 34 35 36 37 38 39]; %mac
+else
+    numkey=[49 50 51 52 53 54 55 56 57 48]; %exp room computer + desktop
+end
+
+% possible orders for presentation of 3 stimulus types
+orderList = [1 2 3;1 3 2;2 1 3;2 3 1;3 1 2;3 2 1];
+
+subNum = input('Participant number? ','s');		% put in participant/subject number
+
+% pseudorandomly select order of presentation based on subject number 
+if length(subNum) < 1; subNum = 'tmp'; end;
+Mult=str2num(subNum)/6;
+
+if Mult >1 && Mult ~=2
+    sub = (Mult - floor(Mult))*6;
+elseif Mult == 2;
+    sub = 6;
+else
+    sub = str2num(subNum);
+end
+if sub == 0
+    sub = 6;
+end
+if test == 1
+    numreps = 1;
+end
+order = orderList(round(sub),:)
+
+% list of functions/commands for each stimulus presentation - to be accessed later
+% based on order 
+practice = [{' [BasicPrac] = basicrect3(Vars, numkey,2);'},{'[OpenBotEvPrac] = basicOpenBotEven(Vars, numkey,2);'},{'[OpenBotPrac] = basicOpenBot(Vars,numkey,2);'}]; % {'OpenPrac = basicOpen2(Vars,numkey,2);'}
+experiment = [{' [Basic] = basicrect3(Vars, numkey,numreps);'},{'[OpenBotEv] = basicOpenBotEven(Vars, numkey,numreps);'},{'[OpenBot] = basicOpenBot(Vars,numkey,numreps);'}]; % {Open = basicOpen2(Vars,numkey,numreps);'}     
+figures = [{'Basic.ErrorRate'},{'OpenBotEv.ErrorRate'},{'OpenBot.ErrorRate'}];
+
+datafile = sprintf('basic_open_even_%s.mat',subNum); % name for file saved with results
+
+% wait until subject is set to start the presentation
+while ready==0
+    resp=input('Are you ready to start? Yes = press enter. No, press 0 then enter.      ','s');
+    ready=str2double(resp);
+end
+ListenChar(2); % suppress character output at the command line.
+
+
+%% OPEN SCREEN AND FIND CENTER
+
+[Vars.w,Vars.rect] = Screen('OpenWindow',monitor, Vars.bgColor,Vars.windSize); % open a grey window
+Screen('BlendFunction', Vars.w, GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA); % activate blending to avoid visual aliasing
+
+Vars.x0 = Vars.rect(3)/2; % find the center of the screen
+Vars.y0 = Vars.rect(4)/2;
+Vars.sx='center'; % set text to present at center
+Vars.sy='center';
+
+Vars.fixrectv = [Vars.x0-Vars.width, Vars.y0-Vars.height, Vars.x0+Vars.width, Vars.y0+Vars.height]; % set dimensions of the fixation cross
+Vars.fixrecth = [Vars.x0-Vars.height, Vars.y0-Vars.width, Vars.x0+Vars.height, Vars.y0+Vars.width]; 
+
+%% Run Experiment
+
+ordernames = {'first' 'second' 'third'};
+TotalExpStart = GetSecs;
+for itype = 1:3
+    DrawFormattedText(Vars.w, sprintf('You are about to start the %s practice block. Press the space bar to continue.',ordernames{itype}),Vars.sx,Vars.sy);
+    Screen('Flip',Vars.w)
+    KeyIsDown = 0;
+    WaitSecs(.5)
+    while KeyIsDown==0;
+        [KeyIsDown,Secs,KeyCode] = KbCheck; %start checking for response
+    end
+    eval(practice{order(itype)});
+end
+
+for itype = 1:3
+    DrawFormattedText(Vars.w, sprintf('You are about to start the %s experimental block. Press the space bar to continue.',ordernames{itype}),Vars.sx,Vars.sy);
+    Screen('Flip',Vars.w)
+    KeyIsDown = 0;
+    WaitSecs(.5)
+    while KeyIsDown==0;
+        [KeyIsDown,Secs,KeyCode] = KbCheck; %start checking for response
+    end
+    eval(experiment{order(itype)});
+end
+ 
+TotalExpEnd=GetSecs; %end of experiment
+DrawFormattedText(Vars.w, 'The End!',Vars.sx,Vars.sy);
+Screen('Flip',Vars.w);
+WaitSecs(1.5)
+
+%% SAVE LIST AND TIME INFO TO FILEls
+% %
+cd ./data
+save(datafile)
+cd ..
+
+Screen('CloseAll'); % close all screens
+Priority(0); % reset priority level
+ListenChar(0); % stop suppressing commandline output
+ShowCursor; % hides the mouse cursor
+
+figure(1) 
+plot(eval(figures{1}))
+figure(2)
+plot(eval(figures{2}))
+figure(3)
+plot(eval(figures{3})) 
+ 
